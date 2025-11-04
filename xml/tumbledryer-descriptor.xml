@@ -1,0 +1,89 @@
+<control-adapter
+    xmlns="http://www.sorbonne-universite.fr/alasca/control-adapter"
+    uid="1A10000"
+    offered="Interfaces.TumbleDryerEnergyManagerI">
+  
+  <required>java.lang.Math</required>
+  <required>fr.sorbonne_u.exceptions.PreconditionException</required>
+  <instance-var modifiers= "protected static" type="int" name="MAX_MODE"
+                static-init="4"/>
+  <instance-var modifiers= "protected" type="int" name="currentMode"
+                static-init="MAX_MODE"/>
+  <instance-var modifiers= "protected" type="boolean" name="isSuspended"
+                static-init="false"/>
+  
+  
+
+  <maxMode><body>return MAX_MODE;</body></maxMode>
+  <upMode>
+    <body>
+      try {
+        TumbleDryer.upperLevel();
+        currentMode++;
+      } catch(Exception e) {
+        return false;
+      }
+      return true;
+    </body>
+  </upMode>
+  <downMode>
+    <body>
+      try {
+        TumbleDryer.lowerLevel(currentMode - 1);
+        currentMode--;
+      } catch(Exception e) {
+        return false;
+      }
+      return true;
+    </body>
+  </downMode>
+  <setMode>
+    <parameter name="modeIndex"/>
+    <body>
+      try {
+        TumbleDryer.setPowerLevel(modeIndex);
+        currentMode = modeIndex;
+      } catch(Exception e) {
+        return false;
+      }
+      return true;
+    </body>
+  </setMode>
+  <currentMode>
+    <body>
+      return currentMode;
+    </body>
+  </currentMode>
+  <getModeConsumption>
+  	<parameter name="modeIndex"/>
+  	<body>
+  		return TumbleDryer.getNeededPowerLevel(modeIndex);
+  	</body>
+  </getModeConsumption>
+  <suspended>
+    <body>
+      return isSuspended;
+    </body>
+  </suspended>
+  <suspend>
+    <body equipmentRef="tumbledryer">
+      currentMode = 1;
+	  isSuspended= true;
+	  return TumbleDryer.timedShutdown();
+    </body>
+  </suspend>
+  <resume>
+    <body equipmentRef="tumbledryer">
+      currentMode = 1;
+      isSuspended = true;
+      return TumbleDryer.shutDown();
+      
+    </body>
+  </resume>
+  <emergency>
+    <body equipmentRef="tumbledryer">
+     emergencyCatchedMode = currentMode;
+     TumbleDryer.shutDown();
+    </body>
+  </emergency>
+</control-adapter>
