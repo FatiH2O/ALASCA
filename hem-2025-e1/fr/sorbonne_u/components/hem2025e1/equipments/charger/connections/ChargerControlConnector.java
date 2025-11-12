@@ -3,7 +3,7 @@ package fr.sorbonne_u.components.hem2025e1.equipments.charger.connections;
 import fr.sorbonne_u.alasca.physical_data.Measure;
 import fr.sorbonne_u.alasca.physical_data.SignalData;
 import fr.sorbonne_u.components.connectors.AbstractConnector;
-import fr.sorbonne_u.components.hem2025e1.equipments.smartCharger.ChargerControlCI;
+import fr.sorbonne_u.components.hem2025e1.equipments.charger.ChargerControlCI;
 
 public class ChargerControlConnector extends AbstractConnector implements ChargerControlCI {
 
@@ -39,7 +39,7 @@ public class ChargerControlConnector extends AbstractConnector implements Charge
     }
 
     @Override
-    public void setTargetPower(double watts) throws Exception {
+    public void setTargetPower(Measure<Double> watts) throws Exception {
         ((ChargerControlCI) this.offering).setTargetPower(watts);
     }
 }

@@ -1,0 +1,130 @@
+<control-adapter
+    xmlns="http://www.sorbonne-universite.fr/alasca/control-adapter"
+    uid="CHARGER-ADAPTER"
+    offered="fr.sorbonne_u.components.hem2025e1.equipments.charger.ChargerControlJava4CI">
+
+    <instance-var modifiers="protected static" type="int" name="MAX_MODE" static-init="4"/>
+    <instance-var modifiers="protected" type="int" name="currentMode" static-init="4"/>
+    <instance-var modifiers="protected" type="boolean" name="isSuspended" static-init="false"/>
+
+    <internal modifiers="protected" type="double" name="computePower">
+        <parameter type="int" name="mode"/>
+        <thrown>java.lang.Exception</thrown>
+        <body equipmentRef="charger">
+            double maxW = charger.getMaxPowerLevel().getMeasure().getData();
+            return (mode * maxW) / MAX_MODE;
+        </body>
+    </internal>
+
+    <internal modifiers="protected" type="void" name="applyPower">
+        <parameter type="double" name="watts"/>
+        <thrown>java.lang.Exception</thrown>
+        <body equipmentRef="charger">
+            if (watts < 0.0) watts = 0.0;
+            double maxW = charger.getMaxPowerLevel().getMeasure().getData();
+            if (watts > maxW) watts = maxW;
+            charger.setTargetPower(new fr.sorbonne_u.alasca.physical_data.Measure<>(watts));
+        </body>
+    </internal>
+
+    <internal modifiers="protected" type="void" name="applyModeInternal">
+        <parameter type="int" name="mode"/>
+        <thrown>java.lang.Exception</thrown>
+        <body>
+            double w = computePower(mode);
+            applyPower(w);
+        </body>
+    </internal>
+
+    <maxMode><body>return MAX_MODE;</body></maxMode>
+
+    <upMode>
+        <body>
+            try {
+                applyModeInternal(currentMode + 1);
+                currentMode++;
+            } catch(Exception e) {
+                return false;
+            }
+            return true;
+        </body>
+    </upMode>
+
+    <downMode>
+        <body>
+            try {
+                applyModeInternal(currentMode - 1);
+                currentMode--;
+            } catch(Exception e) {
+                return false;
+            }
+            return true;
+        </body>
+    </downMode>
+
+    <setMode>
+        <parameter name="modeIndex"/>
+        <body>
+            try {
+                applyModeInternal(modeIndex);
+                currentMode = modeIndex;
+            } catch(Exception e) {
+                return false;
+            }
+            return true;
+        </body>
+    </setMode>
+
+    <currentMode>
+        <body>
+            if (suspended()) return 0;
+            return currentMode;
+        </body>
+    </currentMode>
+
+    <getModeConsumption>
+        <parameter name="modeIndex"/>
+        <body>
+            return computePower(modeIndex);
+        </body>
+    </getModeConsumption>
+
+    <suspended>
+        <body>return isSuspended;</body>
+    </suspended>
+
+    <suspend>
+        <body equipmentRef="charger">
+            try {
+                charger.stopCharging();
+                isSuspended = true;
+            } catch(Exception e) {
+                return false;
+            }
+            return true;
+        </body>
+    </suspend>
+
+    <resume>
+        <body equipmentRef="charger">
+            try {
+                applyModeInternal(currentMode);
+                charger.startCharging();
+                isSuspended = false;
+            } catch(Exception e) {
+                return false;
+            }
+            return true;
+        </body>
+    </resume>
+
+    <emergency>
+        <body equipmentRef="charger">
+            double level = charger.getCurrentPowerLevel().getMeasure().getData();
+            double max = charger.getMaxPowerLevel().getMeasure().getData();
+            if (level >= max * 0.9) return 1.0;
+            return level / max;
+        </body>
+    </emergency>
+
+</control-adapter>

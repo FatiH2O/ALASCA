@@ -1,6 +1,7 @@
 package fr.sorbonne_u.components.hem2025e1.equipments.ac.connections;
 
 import fr.sorbonne_u.alasca.physical_data.Measure;
+import fr.sorbonne_u.alasca.physical_data.SignalData;
 import fr.sorbonne_u.components.ComponentI;
 import fr.sorbonne_u.components.hem2025e1.equipments.ac.ACUserCI;
 import fr.sorbonne_u.components.ports.AbstractOutboundPort;
@@ -45,4 +46,26 @@ public class ACUserOutboundPort extends AbstractOutboundPort implements ACUserCI
     public fr.sorbonne_u.alasca.physical_data.SignalData<Double> getCurrentTemperature() throws Exception {
         return ((ACUserCI)this.getConnector()).getCurrentTemperature();
     }
+   
+
+	
+	@Override
+	public Measure<Double>	getMaxPowerLevel() throws Exception
+	{
+		return ((ACUserCI)this.getConnector()).getMaxPowerLevel();
+	}
+
+	
+	@Override
+	public void			setCurrentPowerLevel(Measure<Double> powerLevel)
+	throws Exception
+	{
+		((ACUserCI)this.getConnector()).setCurrentPowerLevel(powerLevel);
+	}
+	@Override
+	public SignalData<Double>	getCurrentPowerLevel() throws Exception
+	{
+		return ((ACUserCI)this.getConnector()).getCurrentPowerLevel();
+	}
+
 }

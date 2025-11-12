@@ -1,6 +1,7 @@
 package fr.sorbonne_u.components.hem2025e1.equipments.ac.connections;
 
 import fr.sorbonne_u.alasca.physical_data.Measure;
+import fr.sorbonne_u.alasca.physical_data.SignalData;
 import fr.sorbonne_u.components.connectors.AbstractConnector;
 import fr.sorbonne_u.components.hem2025e1.equipments.ac.ACExternalControlCI;
 
@@ -16,7 +17,7 @@ public class ACExternalControlConnector extends AbstractConnector implements ACE
     }
     
     @Override
-    public Measure<Double> getCurrentPowerLevel() throws Exception {
+    public SignalData<Double> getCurrentPowerLevel() throws Exception {
         return ((ACExternalControlCI)this.offering).getCurrentPowerLevel();
     }
 

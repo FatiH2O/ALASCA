@@ -1,7 +1,7 @@
 package fr.sorbonne_u.components.hem2025e1.equipments.charger.connections;
 
 import fr.sorbonne_u.components.connectors.AbstractConnector;
-import fr.sorbonne_u.components.hem2025e1.equipments.smartCharger.ChargerUserCI;
+import fr.sorbonne_u.components.hem2025e1.equipments.charger.ChargerUserCI;
 
 public class ChargerUserConnector
 extends     AbstractConnector

@@ -1,6 +1,7 @@
 package fr.sorbonne_u.components.hem2025e1.equipments.ac.connections;
 
 import fr.sorbonne_u.alasca.physical_data.Measure;
+import fr.sorbonne_u.alasca.physical_data.SignalData;
 import fr.sorbonne_u.components.ComponentI;
 import fr.sorbonne_u.components.hem2025e1.equipments.ac.ACExternalControlCI;
 import fr.sorbonne_u.components.ports.AbstractOutboundPort;
@@ -23,7 +24,7 @@ public class ACExternalControlOutboundPort extends AbstractOutboundPort implemen
     }
     
     @Override
-    public Measure<Double> getCurrentPowerLevel() throws Exception {
+    public SignalData<Double> getCurrentPowerLevel() throws Exception {
         return ((ACExternalControlCI)this.getConnector()).getCurrentPowerLevel();
     }
 

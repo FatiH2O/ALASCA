@@ -1,0 +1,68 @@
+<control-adapter
+    xmlns="http://www.sorbonne-universite.fr/alasca/control-adapter"
+    uid="AC-SN-001"
+    offered="fr.sorbonne_u.components.hem2025e1.equipments.ac.ACExternalControlJava4CI">
+  
+  <consumption nominal="2000" min="0" max="2000"/>
+  <instance-var modifiers="protected" type="boolean" name="isSuspended" static-init="false"/>
+  
+  <suspended>
+    <body>
+      return isSuspended;
+    </body>
+  </suspended>
+
+  <suspend>
+    <body equipmentRef="ac">
+      try {
+        ac.setCurrentPowerLevelJava4(0.0);
+        isSuspended = true;
+      } catch(Exception e) {
+        return false;
+      }
+      return true;
+    </body>
+  </suspend>
+
+  <resume>
+    <body equipmentRef="ac">
+      try {
+              double maxPower = ac.getMaxPowerLevelJava4();
+        ac.setCurrentPowerLevelJava4(maxPower);
+        isSuspended = false;
+      } catch(Exception e) {
+        return false;
+      }
+      return true;
+    </body>
+  </resume>
+
+  <emergency>
+    <body equipmentRef="ac">
+      double currentTemperature = ac.getCurrentTemperatureJava4();
+      double targetTemperature = ac.getTargetTemperatureJava4();
+      double delta = currentTemperature - targetTemperature; 
+      
+      double MAX_ADMISSIBLE_TEMP = 30.0;
+      double MAX_ADMISSIBLE_DELTA = 5.0;
+
+      double ret = 0.0;
+      if (currentTemperature > MAX_ADMISSIBLE_TEMP || delta >= MAX_ADMISSIBLE_DELTA) {
+        ret = 1.0;
+      } else if (delta > 0) {
+        ret = delta / MAX_ADMISSIBLE_DELTA;
+      }
+      return ret;
+    </body>
+  </emergency>
+
+  <maxMode><body>return 1;</body></maxMode>
+  <upMode><body>return false;</body></upMode>
+  <downMode><body>return false;</body></downMode>
+  <setMode><parameter name="modeIndex"/><body>return true;</body></setMode>
+  <currentMode><body>return 1;</body></currentMode>
+  <getModeConsumption><parameter name="modeIndex"/>
+    <body equipmentRef="ac"> return ac.getMaxPowerLevelJava4(); </body>
+  </getModeConsumption>
+
+</control-adapter>
