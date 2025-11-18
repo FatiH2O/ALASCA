@@ -13,7 +13,6 @@ public class Charger extends AbstractComponent
 
     public static final String CONTROL_INBOUND_PORT_URI = "SMARTCHARGER-CONTROL-INBOUND-URI";
     public static final String USER_INBOUND_PORT_URI = "SMARTCHARGER-USER-INBOUND-URI";
-    public static final String CONTROL_JAVA4_INBOUND_PORT_URI = "SMARTCHARGER-CONTROL-JAVA4-INBOUND-URI"; // <--- NOUVELLE URI CIBLE
     public static boolean VERBOSE = true;
     protected ChargerImplementation implementation;
     protected ChargerControlInboundPort controlPort;
