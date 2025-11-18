@@ -6,9 +6,8 @@ import fr.sorbonne_u.components.annotations.OfferedInterfaces;
 import fr.sorbonne_u.components.exceptions.ComponentShutdownException;
 import fr.sorbonne_u.components.hem2025e1.equipments.charger.ChargerUserInboundPort;
 import fr.sorbonne_u.components.hem2025e1.equipments.charger.connections.ChargerControlInboundPort;
-import fr.sorbonne_u.components.hem2025e1.equipments.charger.connections.ChargerControlJava4InboundPort;
 
-@OfferedInterfaces(offered = {ChargerControlCI.class, ChargerUserCI.class, ChargerControlJava4CI.class}) // <--- AJOUTÉ
+@OfferedInterfaces(offered = {ChargerControlCI.class, ChargerUserCI.class}) // 
 public class Charger extends AbstractComponent
         implements ChargerControlI, ChargerUserI {
 
@@ -19,7 +18,6 @@ public class Charger extends AbstractComponent
     protected ChargerImplementation implementation;
     protected ChargerControlInboundPort controlPort;
     protected ChargerUserInboundPort userPort;
-    protected ChargerControlJava4InboundPort controlJava4Port; 
 
     protected Charger() throws Exception {
         super(1, 0);
@@ -30,10 +28,6 @@ public class Charger extends AbstractComponent
         this.controlPort.publishPort();
         this.userPort.publishPort();
         
-        // PUBLICATION DU PORT CIBLE JAVASSIST
-        this.controlJava4Port = new ChargerControlJava4InboundPort(CONTROL_JAVA4_INBOUND_PORT_URI, this);
-        this.controlJava4Port.publishPort();
-
         this.tracer.get().setTitle("Composant SmartCharger");
         this.tracer.get().setRelativePosition(1, 1);
         this.toggleTracing();
@@ -44,7 +38,6 @@ public class Charger extends AbstractComponent
         try {
             if (this.controlPort.isPublished()) this.controlPort.unpublishPort();
             if (this.userPort.isPublished()) this.userPort.unpublishPort();
-            if (this.controlJava4Port.isPublished()) this.controlJava4Port.unpublishPort(); // <--- UNPUBLISH
         } catch (Exception e) {
             throw new ComponentShutdownException(e);
         }

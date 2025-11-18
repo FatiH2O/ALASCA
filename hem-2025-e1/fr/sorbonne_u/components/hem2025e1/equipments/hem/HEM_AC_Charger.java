@@ -98,7 +98,7 @@ public class HEM_AC_Charger extends AbstractComponent implements RegistrationCI 
                 this.chargerop.publishPort();
                 this.doPortConnection(
                         this.chargerop.getPortURI(),
-                        "SMARTCHARGER-CONTROL-JAVA4-INBOUND-URI",
+                        "SMARTCHARGER-CONTROL-INBOUND-URI",
                         ChargerConnector.class.getCanonicalName());
             }
         } catch (Exception e) {
