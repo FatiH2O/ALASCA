@@ -1,11 +1,17 @@
 package Components;
 
+
+
 import java.io.Serializable;
 
+import java.net.URL;
 
-import Connectors.AjustableTumbleDryerConnector;
+import Connectors.RegistationCIConnector;
+import Interfaces.TumbleDryerEnergyManagerCI;
 import Interfaces.TumbleDryerEnergyManagerI;
 import Interfaces.TumbleDryerUserI;
+import Ports.RegistrationCIIP;
+import Ports.RegistrationCIOP;
 import Ports.TDEnergyManagerInboundPort;
 import Ports.TDEnergyManagerOutboundPort;
 import Ports.UserInboundPort;
@@ -13,24 +19,28 @@ import Interfaces.TumbleDryerUserCI;
 import fr.sorbonne_u.components.AbstractComponent;
 import fr.sorbonne_u.components.exceptions.ComponentShutdownException;
 import fr.sorbonne_u.components.exceptions.ComponentStartException;
-
+import fr.sorbonne_u.components.hem2025.bases.RegistrationCI;
 import fr.sorbonne_u.components.hem2025e1.equipments.hem.AdjustableOutboundPort;
 import fr.sorbonne_u.components.hem2025e1.equipments.hem.HEM;
 import fr.sorbonne_u.exceptions.PostconditionException;
 import fr.sorbonne_u.exceptions.PreconditionException;
+import javassist.bytecode.Descriptor;
 import physical_data.fr.sorbonne_u.alasca.physical_data.Measure;
 import physical_data.fr.sorbonne_u.alasca.physical_data.MeasurementUnit;
 import fr.sorbonne_u.components.ReflectionInboundPort;
 import fr.sorbonne_u.components.annotations.OfferedInterfaces;
+import fr.sorbonne_u.components.annotations.RequiredInterfaces;
 
 
 //programmable
 
 
-@OfferedInterfaces(offered={TumbleDryerUserCI.class})
 
+@OfferedInterfaces(offered={TumbleDryerUserCI.class,TumbleDryerEnergyManagerCI.class})
 
-public class TumbleDryer extends AbstractComponent implements TumbleDryerUserI,TumbleDryerEnergyManagerI{
+@RequiredInterfaces(required = {RegistrationCI.class})
+
+public class TumbleDryer extends AbstractComponent implements TumbleDryerUserI, TumbleDryerEnergyManagerCI{
 
 	protected TumbleDryer() throws Exception {
 		super(1,1);
@@ -41,13 +51,9 @@ public class TumbleDryer extends AbstractComponent implements TumbleDryerUserI,T
 		this.choosedOption= TumbleOption.NULL;
 		this.currentPowerLevel= PowerLevel.LEVEL0;
 		
-		//Ports
+		//Ports pour se connecter avec le user
 		this.UserIP= new UserInboundPort(USER_INBOUND_PORT_URI,this);
 		this.UserIP.publishPort();
-		
-		//se connecter avec HEM qui est client
-		this.EMinboundPort= new TDEnergyManagerInboundPort(HEM_INBOUND_PORT_URI,this);
-		this.EMinboundPort.publishPort();
 		
 		
 	}
@@ -60,23 +66,26 @@ public class TumbleDryer extends AbstractComponent implements TumbleDryerUserI,T
 	private TumbleOption choosedOption;
 		
 	public PowerLevel currentPowerLevel;
+	
 	/** URI of the TumbleDryer inboundport for the HEM  control.						*/
 	public static final String		HEM_INBOUND_PORT_URI =
 									"HEM-CONTROL-INBOUND-PORT-URI";
 
-	public static final String USER_INBOUND_PORT_URI = "USER-INBOUND-PORT-URI";
+	public static final String USER_INBOUND_PORT_URI =
+									"USER-INBOUND-PORT-URI";
 	
 	/**inbound port pour les tests de l'iterface user                                   */
-		protected UserInboundPort UserIP;
+	protected UserInboundPort UserIP;
+	/**RegistrationCI outboundport pour appeler la HEM                                  */
+	protected RegistrationCIOP registrationOP;
+
 		
-		
-	//celui qui implante l'interface offerte de tumble dryer 
+	//Pour l'enregistrement
 	protected TDEnergyManagerInboundPort EMinboundPort; 
-	//pour l'enregistrement,qui impalnte les interface CI
-	protected AdjustableOutboundPort EMoutboundPort;
+	
 	
 	//numero de serie
-	public static final String NUMSERIE = "NUMSERIE";
+	public static final String NUMSERIE = "TUMBLEDRYER";
 	
 	
 	/**************All the different Power Levels*******/
@@ -202,6 +211,13 @@ public class TumbleDryer extends AbstractComponent implements TumbleDryerUserI,T
 		this.currentPowerLevel = PowerLevel.LEVEL0;
 		this.choosedOption= TumbleOption.NULL;
 		this.currentState = TumbleDryerState.OFF;
+		
+		try {
+			
+		} catch (Exception e) {
+
+			e.printStackTrace();
+		}
 		return true;
 	}
 
@@ -300,11 +316,11 @@ public class TumbleDryer extends AbstractComponent implements TumbleDryerUserI,T
 
 
 	
-	/***************************** User implementation ***************/
+	/***************************** User implementation***************/
 	
 
 	@Override
-	public void switchOn() {
+	public void switchOn() throws Exception {
 		
 		
 		assert	this.currentState != TumbleDryerState.ON 
@@ -315,14 +331,24 @@ public class TumbleDryer extends AbstractComponent implements TumbleDryerUserI,T
 		assert	 this.currentState == TumbleDryerState.ON 
 				: new PostconditionException("on");
 		
+		//port pour se connecter avec HEM dynamiquement
+		this.EMinboundPort= new TDEnergyManagerInboundPort(HEM_INBOUND_PORT_URI,this);
+		this.EMinboundPort.publishPort();
 		
-
+		//s'enregistrer aupres du HEM
+		this.registrationOP = new RegistrationCIOP(this);
+		this.registrationOP.publishPort();
+		this.doPortConnection(registrationOP.getPortURI(), HEM.REGISTRATION_IP_TD,
+				RegistationCIConnector.class.getCanonicalName());
 		
+		URL url = this.getClass().getResource("/xml/tumbledryer_descriptor.xml");
+		
+		this.registrationOP.register(NUMSERIE, HEM_INBOUND_PORT_URI, url.getPath());
 		
 	}
 
 	@Override
-	public void switchOff() {
+	public void switchOff() throws Exception {
 		
 		assert	this.currentState != TumbleDryerState.OFF : new PreconditionException("!off");
 		
@@ -331,7 +357,17 @@ public class TumbleDryer extends AbstractComponent implements TumbleDryerUserI,T
 		this.currentState= TumbleDryerState.OFF;
 		this.currentPowerLevel = PowerLevel.LEVEL0;
 		
+		
 		assert	 this.currentState == TumbleDryerState.OFF : new PostconditionException("off");
+		
+		//se desenregistrer
+		this.registrationOP.unregister(NUMSERIE);
+		this.registrationOP.unpublishPort();
+		this.registrationOP.destroyPort();
+		
+		//détruire le port de connection dynamique avec la hem
+		this.EMinboundPort.unpublishPort();
+		this.EMinboundPort.destroyPort();
 		
 	
 		
@@ -403,9 +439,6 @@ public class TumbleDryer extends AbstractComponent implements TumbleDryerUserI,T
 		return this.choosedOption.toString();
 	}
 
-	/***************************** Life cycle  ***************/
-	
-	
 	
 	@Override
 	public synchronized void	shutdown() throws ComponentShutdownException
@@ -413,9 +446,8 @@ public class TumbleDryer extends AbstractComponent implements TumbleDryerUserI,T
 		try {
 			this.UserIP.unpublishPort();
 			this.UserIP.destroyPort();
+				
 			
-			this.EMinboundPort.unpublishPort();
-			this.EMinboundPort.destroyPort();
 		} catch (Throwable e) {
 			throw new ComponentShutdownException(e) ;
 		}

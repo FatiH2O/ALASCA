@@ -32,13 +32,19 @@ package fr.sorbonne_u.components.hem2025e1.equipments.hem;
 // The fact that you are presently reading this means that you have had
 // knowledge of the CeCILL-C license and that you accept its terms.
 
+
 import fr.sorbonne_u.components.AbstractComponent;
+
+
+
+import fr.sorbonne_u.components.annotations.OfferedInterfaces;
 import fr.sorbonne_u.components.annotations.RequiredInterfaces;
 import fr.sorbonne_u.components.exceptions.BCMException;
 import fr.sorbonne_u.components.exceptions.BCMRuntimeException;
 import fr.sorbonne_u.components.exceptions.ComponentShutdownException;
 import fr.sorbonne_u.components.exceptions.ComponentStartException;
 import fr.sorbonne_u.components.hem2025.bases.AdjustableCI;
+import fr.sorbonne_u.components.hem2025.bases.RegistrationCI;
 import fr.sorbonne_u.components.hem2025.tests_utils.TestsStatistics;
 import fr.sorbonne_u.components.hem2025e1.CVMIntegrationTest;
 import fr.sorbonne_u.components.hem2025e1.equipments.batteries.Batteries;
@@ -72,12 +78,18 @@ import fr.sorbonne_u.utils.aclocks.ClocksServer;
 import fr.sorbonne_u.utils.aclocks.ClocksServerCI;
 import fr.sorbonne_u.utils.aclocks.ClocksServerConnector;
 import fr.sorbonne_u.utils.aclocks.ClocksServerOutboundPort;
+
+import java.io.File;
 import java.time.Instant;
+import java.util.Hashtable;
 import java.util.concurrent.TimeUnit;
 
+import AC.AC;
 import Components.TumbleDryer;
-import Connectors.AjustableTumbleDryerConnector;
-import Ports.AjustableTDOutboundPort;
+import Connectors.AdapterParser;
+import Connectors.AdapterParser.ControlAdapterDescriptor;
+import Connectors.ConnectorGenerator;
+import Ports.RegistrationCIIP;
 
 // -----------------------------------------------------------------------------
 /**
@@ -110,15 +122,22 @@ import Ports.AjustableTDOutboundPort;
  * <p>Created on : 2021-09-09</p>
  * 
  * @author	<a href="mailto:Jacques.Malenfant@lip6.fr">Jacques Malenfant</a>
+ * 
+ * 
  */
+
+@OfferedInterfaces(offered={RegistrationCI.class})
+
 @RequiredInterfaces(required = {ClocksServerCI.class,
 								AdjustableCI.class,
 								ElectricMeterCI.class,
 								BatteriesCI.class,
 								SolarPanelCI.class,
-								GeneratorCI.class})
+								GeneratorCI.class,
+								})
 public class			HEM
-extends		AbstractComponent
+extends		AbstractComponent implements RegistrationCI
+
 {
 	// -------------------------------------------------------------------------
 	// Constants and variables
@@ -146,9 +165,21 @@ extends		AbstractComponent
 	protected boolean						isPreFirstStep;
 	/** port to connect to the heater when managed in a customised way.		*/
 	protected AdjustableOutboundPort		heaterop;
+
+	/** Registration inboundport pour TD         								*/
+	protected RegistrationCIIP             registrationIP_TD;
 	
-	/** port to connect the Tumble dryer when managed by the HEM            */
-	protected AjustableTDOutboundPort       TDop;
+	/** Registration inboundport            								*/
+	protected RegistrationCIIP             registrationIP_AC;
+	
+	/** Registration inboundport URI know by all the components      		*/
+	public static final  String REGISTRATION_IP_TD = 
+											"REGISTRATION_IP";
+	/** Registration inboundport URI know by all the components      		*/
+	public static final  String REGISTRATION_IP_AC = 
+											"REGISTRATION_IP_AC";
+	/** Pour garder en mémoire les composant déja connécté à l'HEM   		*/
+	Hashtable<String, AdjustableOutboundPort> registation = new Hashtable<>();
 
 	/** when true, this implementation of the HEM performs the tests
 	 *  that are planned in the method execute.								*/
@@ -223,9 +254,10 @@ extends		AbstractComponent
 	 * pre	{@code true}	// no precondition.
 	 * post	{@code true}	// no postcondition.
 	 * </pre>
+	 * @throws Exception 
 	 *
 	 */
-	protected 			HEM()
+	protected 			HEM() throws Exception
 	{
 		// by default, perform the tests planned in the method execute.
 		this(true);
@@ -242,8 +274,9 @@ extends		AbstractComponent
 	 * </pre>
 	 *
 	 * @param performTest	if {@code true}, the HEM performs the planned tests, otherwise not.
+	 * @throws Exception 
 	 */
-	protected 			HEM(boolean performTest)
+	protected 			HEM(boolean performTest) throws Exception
 	{
 		// 1 standard thread to execute the method execute and 1 schedulable
 		// thread that is used to perform the tests
@@ -254,6 +287,15 @@ extends		AbstractComponent
 		// by default, consider this execution as one in the pre-first step
 		// and manage the heater in a customised way.
 		this.isPreFirstStep = true;
+		
+		//to register the different components
+		//TD
+		this.registrationIP_TD= new RegistrationCIIP(REGISTRATION_IP_TD,this);
+		this.registrationIP_TD.publishPort();
+		
+		//AC
+		this.registrationIP_AC= new RegistrationCIIP(REGISTRATION_IP_AC,this);
+		this.registrationIP_AC.publishPort();
 
 		if (VERBOSE) {
 			this.tracer.get().setTitle("Home Energy Manager component");
@@ -320,12 +362,7 @@ extends		AbstractComponent
 				
 			}
 			
-			this.TDop = new AjustableTDOutboundPort(this);
-			this.TDop.publishPort();
-			this.doPortConnection(this.TDop.getPortURI(),
-					TumbleDryer.HEM_INBOUND_PORT_URI , 
-					AjustableTumbleDryerConnector.class.getCanonicalName());
-			
+	
 		} catch (Throwable e) {
 			throw new ComponentStartException(e) ;
 		}
@@ -339,23 +376,8 @@ extends		AbstractComponent
 	@Override
 	public synchronized void	execute() throws Exception
 	{
-		// First, get the clock and wait until the start time that it specifies.
-		this.ac = null;
-		ClocksServerOutboundPort clocksServerOutboundPort =
-											new ClocksServerOutboundPort(this);
-		clocksServerOutboundPort.publishPort();
-		this.doPortConnection(
-					clocksServerOutboundPort.getPortURI(),
-					ClocksServer.STANDARD_INBOUNDPORT_URI,
-					ClocksServerConnector.class.getCanonicalName());
-		this.traceMessage("HEM gets the clock.\n");
-		this.ac = clocksServerOutboundPort.getClock(CVMIntegrationTest.CLOCK_URI);
-		this.doPortDisconnection(clocksServerOutboundPort.getPortURI());
-		clocksServerOutboundPort.unpublishPort();
-		this.traceMessage("HEM waits until start time.\n");
-		this.ac.waitUntilStart();
-		this.traceMessage("HEM starts.\n");
-
+		
+		
 		if (this.performTest) {
 			this.logMessage("Electric meter tests start.");
 			this.testMeter();
@@ -370,11 +392,17 @@ extends		AbstractComponent
 			this.testGenerator();
 			this.logMessage("Generator tests end.");
 			if (this.isPreFirstStep) {
-				this.scheduleTestHeater();
+				//this.scheduleTestHeater();
 			}
+			
 			this.logMessage("TUMBLEDRYER TEST START");
-			this.testTumbleDryer();
+			//this.testTumbleDryer();
 			this.logMessage("TUMBLEDRYER TEST END."); 
+			
+			this.logMessage("AC TEST START");
+			this.testAC();
+			this.logMessage("AC TEST END");
+
 		}
 	}
 
@@ -414,7 +442,25 @@ extends		AbstractComponent
 			throw new ComponentShutdownException(e) ;
 		}
 		
-		//fair pareille pour tumbledryer
+		//détruire le port d'enregistrement
+        try {
+			this.registrationIP_TD.unpublishPort();
+			this.registrationIP_AC.unpublishPort();
+
+		} catch (Exception e) {
+			
+			e.printStackTrace();
+		}
+        try {
+			this.registrationIP_TD.destroyPort();
+			this.registrationIP_AC.destroyPort();
+
+			
+		} catch (Exception e) {
+			
+			e.printStackTrace();
+		}
+        
 		super.shutdown();
 	}
 
@@ -979,6 +1025,8 @@ extends		AbstractComponent
 	
 	protected void		testTumbleDryer() throws Exception
 	{
+		Thread.sleep(2000);//pour s'assurer que TD est on grace au unitTest
+
 		this.logMessage("TumbleDryer tests start.");
 		TestsStatistics statistics = new TestsStatistics();
 		try {
@@ -987,7 +1035,7 @@ extends		AbstractComponent
 			this.logMessage("    Given the TumbleDryer has just been turned on");
 			this.logMessage("    When I call maxMode()");
 			this.logMessage("    Then the result is its max mode index");
-			final int maxMode = TDop.maxMode();
+			final int maxMode = this.registation.get(TumbleDryer.NUMSERIE).maxMode();
 
 			statistics.updateStatistics();
 
@@ -995,7 +1043,7 @@ extends		AbstractComponent
 			this.logMessage("    Given the TumbleDryer has just been turned on");
 			this.logMessage("    When I call currentMode()");
 			this.logMessage("    Then the current mode is its max mode");
-			int result = TDop.currentMode();
+			int result = this.registation.get(TumbleDryer.NUMSERIE).currentMode();
 			if (result != maxMode) {
 				this.logMessage("      but was: " + result);
 				statistics.incorrectResult();
@@ -1006,20 +1054,20 @@ extends		AbstractComponent
 			this.logMessage("  Scenario: going down one mode index");
 			this.logMessage("    Given the TumbleDryer is turned on");
 			this.logMessage("    And the current mode index is the max mode index");
-			result = TDop.currentMode();
+			result = this.registation.get(TumbleDryer.NUMSERIE).currentMode();
 			if (result != maxMode) {
 				this.logMessage("      but was: " + result);
 				statistics.failedCondition();
 			}
 			this.logMessage("    When I call downMode()");
 			this.logMessage("    Then the method returns true");
-			boolean bResult = TDop.downMode();
+			boolean bResult = this.registation.get(TumbleDryer.NUMSERIE).downMode();
 			if (!bResult) {
 				this.logMessage("      but was: " + bResult);
 				statistics.incorrectResult();
 			}
 			this.logMessage("    And the current mode is its max mode minus one");
-			result = TDop.currentMode();
+			result = this.registation.get(TumbleDryer.NUMSERIE).currentMode();
 			if (result != maxMode - 1) {
 				this.logMessage("      but was: " + result);
 				statistics.incorrectResult();
@@ -1030,20 +1078,21 @@ extends		AbstractComponent
 			this.logMessage("  Scenario: going up one mode index");
 			this.logMessage("    Given the TumbleDryer is turned on");
 			this.logMessage("    And the current mode index is the max mode index minus one");
-			result = TDop.currentMode();
+			result = this.registation.get(TumbleDryer.NUMSERIE).currentMode();
 			if (result != maxMode - 1) {
 				this.logMessage("      but was: " + result);
 				statistics.failedCondition();
 			}
 			this.logMessage("    When I call upMode()");
 			this.logMessage("    Then the method returns true");
-			bResult = TDop.upMode();
+
+			bResult = this.registation.get(TumbleDryer.NUMSERIE).upMode();
 			if (!bResult) {
 				this.logMessage("      but was: " + bResult);
 				statistics.incorrectResult();
 			}
 			this.logMessage("    And the current mode is its max mode");
-			result = TDop.currentMode();
+			result = this.registation.get(TumbleDryer.NUMSERIE).currentMode();
 			if (result != maxMode) {
 				this.logMessage("      but was: " + result);
 				statistics.incorrectResult();
@@ -1061,13 +1110,13 @@ extends		AbstractComponent
 			}
 			this.logMessage("    When I call setMode(1)");
 			this.logMessage("    Then the method returns true");
-			bResult = TDop.setMode(1);
+			bResult = this.registation.get(TumbleDryer.NUMSERIE).setMode(1);
 			if (!bResult) {
 				this.logMessage("      but was: " + bResult);
 				statistics.incorrectResult();
 			}
 			this.logMessage("    And the current mode is 1");
-			result = TDop.currentMode();
+			result = this.registation.get(TumbleDryer.NUMSERIE).currentMode();
 			if (result != 1) {
 				this.logMessage("      but was: " + result);
 				statistics.incorrectResult();
@@ -1079,7 +1128,7 @@ extends		AbstractComponent
 			this.logMessage("  Scenario: getting the power consumption of the maximum mode");
 			this.logMessage("    Given the TumbleDryer is turned on");
 			this.logMessage("    When I get the power consumption of the maximum mode");
-			double dResult = TDop.getModeConsumption(maxMode);
+			double dResult = this.registation.get(TumbleDryer.NUMSERIE).getModeConsumption(maxMode);
 			this.logMessage("    Then the result is the maximum power consumption of the TumbleDryer");
 
 			statistics.updateStatistics();
@@ -1089,7 +1138,7 @@ extends		AbstractComponent
 			this.logMessage("    Given the TumbleDryer is turned on");
 			this.logMessage("    And it has not been suspended yet");
 			this.logMessage("    When I check if suspended");
-			bResult = TDop.suspended();
+			bResult = this.registation.get(TumbleDryer.NUMSERIE).suspended();
 			this.logMessage("    Then it is not");
 			if (bResult) {
 				this.logMessage("      but it was!");
@@ -1101,20 +1150,20 @@ extends		AbstractComponent
 			this.logMessage("  Scenario: suspending");
 			this.logMessage("    Given the TumbleDryer is turned on");
 			this.logMessage("    And it is not suspended");
-			bResult = TDop.suspended();
+			bResult = this.registation.get(TumbleDryer.NUMSERIE).suspended();
 			if (bResult) {
 				this.logMessage("      but it was!");
 				statistics.failedCondition();;
 			}
 			this.logMessage("    When I call suspend()");
-			bResult = TDop.suspend();
+			bResult = this.registation.get(TumbleDryer.NUMSERIE).suspend();
 			this.logMessage("    Then the method returns true");
 			if (!bResult) {
 				this.logMessage("      but was: " + bResult);
 				statistics.incorrectResult();
 			}
 			this.logMessage("    And the TumbleDryer is suspended");
-			bResult = TDop.suspended();
+			bResult = this.registation.get(TumbleDryer.NUMSERIE).suspended();
 			if (!bResult) {
 				this.logMessage("      but it was not!");
 				statistics.incorrectResult();
@@ -1125,7 +1174,7 @@ extends		AbstractComponent
 			this.logMessage("  Scenario: going down one mode index when suspended");
 			this.logMessage("    Given the TumbleDryer is turned on");
 			this.logMessage("    And the TumbleDryer is suspended");
-			bResult = TDop.suspended();
+			bResult = this.registation.get(TumbleDryer.NUMSERIE).suspended();
 			if (!bResult) {
 				this.logMessage("      but it was not!");
 				statistics.failedCondition();;
@@ -1135,7 +1184,7 @@ extends		AbstractComponent
 			boolean old = BCMException.VERBOSE;
 			try {
 				BCMException.VERBOSE = false;
-				TDop.downMode();
+				this.registation.get(TumbleDryer.NUMSERIE).downMode();
 				this.logMessage("      but it was not!");
 				statistics.incorrectResult();
 			} catch (Throwable e) {
@@ -1148,7 +1197,7 @@ extends		AbstractComponent
 			this.logMessage("  Scenario: going up one mode index when suspended");
 			this.logMessage("    Given the TumbleDryer is turned on");
 			this.logMessage("    And the TumbleDryer is suspended");
-			bResult = TDop.suspended();
+			bResult = this.registation.get(TumbleDryer.NUMSERIE).suspended();
 			if (!bResult) {
 				this.logMessage("      but it was not!");
 				statistics.failedCondition();;
@@ -1158,7 +1207,7 @@ extends		AbstractComponent
 			old = BCMException.VERBOSE;
 			try {
 				BCMException.VERBOSE = false;
-				TDop.upMode();
+				this.registation.get(TumbleDryer.NUMSERIE).upMode();
 				this.logMessage("      but it was not!");
 				statistics.incorrectResult();
 			} catch (Throwable e) {
@@ -1171,7 +1220,7 @@ extends		AbstractComponent
 			this.logMessage("  Scenario: setting the mode when suspended");
 			this.logMessage("    Given the TumbleDryer is turned on");
 			this.logMessage("    And the TumbleDryer is suspended");
-			bResult = TDop.suspended();
+			bResult = this.registation.get(TumbleDryer.NUMSERIE).suspended();
 			if (!bResult) {
 				this.logMessage("      but it was not!");
 				statistics.failedCondition();;
@@ -1186,7 +1235,7 @@ extends		AbstractComponent
 			old = BCMException.VERBOSE;
 			try {
 				BCMException.VERBOSE = false;
-				TDop.upMode();
+				this.registation.get(TumbleDryer.NUMSERIE).upMode();
 				this.logMessage("      but it was not!");
 				statistics.incorrectResult();
 			} catch (Throwable e) {
@@ -1199,7 +1248,7 @@ extends		AbstractComponent
 			this.logMessage("  Scenario: getting the current mode when suspended");
 			this.logMessage("    Given the TumbleDryer is turned on");
 			this.logMessage("    And the TumbleDryer is suspended");
-			bResult = TDop.suspended();
+			bResult = this.registation.get(TumbleDryer.NUMSERIE).suspended();
 			if (!bResult) {
 				this.logMessage("      but it was not!");
 				statistics.failedCondition();;
@@ -1209,7 +1258,7 @@ extends		AbstractComponent
 			old = BCMException.VERBOSE;
 			try {
 				BCMException.VERBOSE = false;
-				TDop.currentMode();
+				this.registation.get(TumbleDryer.NUMSERIE).currentMode();
 				this.logMessage("      but it was not!");
 				statistics.incorrectResult();
 			} catch (Throwable e) {
@@ -1222,13 +1271,13 @@ extends		AbstractComponent
 			this.logMessage("  Scenario: checking the emergency");
 			this.logMessage("    Given the TumbleDryer is turned on");
 			this.logMessage("    And it has just been suspended");
-			bResult = TDop.suspended();
+			bResult = this.registation.get(TumbleDryer.NUMSERIE).suspended();
 			if (!bResult) {
 				this.logMessage("      but it was not!");
 				statistics.failedCondition();;
 			}
 			this.logMessage("    When I call emergency()");
-			dResult = TDop.emergency();
+			dResult = this.registation.get(TumbleDryer.NUMSERIE).emergency();
 			this.logMessage("    Then the emergency is between 0.0 and 1.0");
 			if (dResult < 0.0 || dResult > 1.0) {
 				this.logMessage("      but was: " + dResult);
@@ -1240,20 +1289,20 @@ extends		AbstractComponent
 			this.logMessage("  Scenario: resuming");
 			this.logMessage("    Given the TumbleDryer is turned on");
 			this.logMessage("    And it is suspended");
-			bResult = TDop.suspended();
+			bResult = this.registation.get(TumbleDryer.NUMSERIE).suspended();
 			if (!bResult) {
 				this.logMessage("      but it was not!");
 				statistics.failedCondition();;
 			}
 			this.logMessage("    When I call resume()");
-			bResult = TDop.resume();
+			bResult = this.registation.get(TumbleDryer.NUMSERIE).resume();
 			this.logMessage("    Then the method returns true");
 			if (!bResult) {
 				this.logMessage("      but was: " + bResult);
 				statistics.incorrectResult();
 			}
 			this.logMessage("    And the TumbleDryer is not suspended");
-			bResult = TDop.suspended();
+			bResult = this.registation.get(TumbleDryer.NUMSERIE).suspended();
 			if (bResult) {
 				this.logMessage("      but it was!");
 				statistics.incorrectResult();
@@ -1269,6 +1318,163 @@ extends		AbstractComponent
 	}
 
 	
+	/** scénario de test pour AC**/
+	
+	protected void testAC() throws Exception {
+
+		Thread.sleep(2000);
+        this.logMessage("Air Conditioner tests start.");
+        TestsStatistics statistics = new TestsStatistics();
+        try {
+            this.logMessage("Feature: adjustable appliance mode management");
+            this.logMessage("  Scenario: getting the max mode index");
+            this.logMessage("    When I call maxMode()");
+            final int maxMode = this.registation.get(AC.NUMSERIE).maxMode();
+            
+            statistics.updateStatistics();
+
+            this.logMessage("  Scenario: getting the current mode index");
+            this.logMessage("    When I call currentMode()");
+            int result = this.registation.get(AC.NUMSERIE).currentMode();
+            if (result != maxMode) {
+                this.logMessage("      but was: " + result);
+                statistics.incorrectResult();
+            }
+            
+            statistics.updateStatistics();
+
+            this.logMessage("  Scenario: going down one mode index");
+            result = this.registation.get(AC.NUMSERIE).currentMode();
+            if (result != maxMode) {
+                this.logMessage("      but was: " + result);
+                statistics.failedCondition();
+            }
+            this.logMessage("    When I call downMode()");
+            boolean bResult = this.registation.get(AC.NUMSERIE).downMode();
+            if (!bResult) {
+                this.logMessage("      but was: " + bResult);
+                statistics.incorrectResult();
+            }
+            result = this.registation.get(AC.NUMSERIE).currentMode();
+            if (result != maxMode - 1) {
+                this.logMessage("      but was: " + result);
+                statistics.incorrectResult();
+            }
+            statistics.updateStatistics();
+
+            this.logMessage("  Scenario: going up one mode index");
+            result = this.registation.get(AC.NUMSERIE).currentMode();
+            if (result != maxMode - 1) {
+                this.logMessage("      but was: " + result);
+                statistics.failedCondition();
+            }
+            this.logMessage("    When I call upMode()");
+            bResult = this.registation.get(AC.NUMSERIE).upMode();
+            if (!bResult) {
+                this.logMessage("      but was: " + bResult);
+                statistics.incorrectResult();
+            }
+            result = this.registation.get(AC.NUMSERIE).currentMode();
+            if (result != maxMode) {
+                this.logMessage("      but was: " + result);
+                statistics.incorrectResult();
+            }
+            statistics.updateStatistics();
+
+            this.logMessage("  Scenario: setting the mode index");
+            int index = 1;
+            this.logMessage("    And the mode index 1 is legitimate");
+            if (index > maxMode) {
+                this.logMessage("      but was not!");
+                statistics.failedCondition();
+            }
+            this.logMessage("    When I call setMode(1)");
+            bResult = this.registation.get(AC.NUMSERIE).setMode(1);
+            if (!bResult) {
+                this.logMessage("      but was: " + bResult);
+                statistics.incorrectResult();
+            }
+            result = this.registation.get(AC.NUMSERIE).currentMode();
+            if (result != 1) {
+                this.logMessage("      but was: " + result);
+                statistics.incorrectResult();
+            }
+            statistics.updateStatistics();
+
+            this.logMessage("Feature: Getting the power consumption given a mode");
+            this.logMessage("  Scenario: getting the power consumption of the maximum mode");
+            double dResult = this.registation.get(AC.NUMSERIE).getModeConsumption(maxMode);
+            statistics.updateStatistics();
+
+            this.logMessage("Feature: suspending and resuming");
+            this.logMessage("  Scenario: checking if suspended when not");
+            bResult = this.registation.get(AC.NUMSERIE).suspended();
+            if (bResult) {
+                this.logMessage("      but it was!");
+                statistics.incorrectResult();
+            }
+            statistics.updateStatistics();
+
+            this.logMessage("  Scenario: suspending");
+            bResult = this.registation.get(AC.NUMSERIE).suspended();
+            if (bResult) {
+                this.logMessage("      but it was!");
+                statistics.failedCondition();
+            }
+            this.logMessage("    When I call suspend()");
+            bResult = this.registation.get(AC.NUMSERIE).suspend();
+            if (!bResult) {
+                this.logMessage("      but was: " + bResult);
+                statistics.incorrectResult();
+            }
+            bResult = this.registation.get(AC.NUMSERIE).suspended();
+            if (!bResult) {
+                this.logMessage("      but it was not!");
+                statistics.incorrectResult();
+            }
+            statistics.updateStatistics();
+
+            this.logMessage("  Scenario: checking the emergency");
+            bResult = this.registation.get(AC.NUMSERIE).suspended();
+            if (!bResult) {
+                this.logMessage("      but it was not!");
+                statistics.failedCondition();
+            }
+            this.logMessage("    When I call emergency()");
+            dResult = this.registation.get(AC.NUMSERIE).emergency();
+            
+            if (dResult < 0.0 || dResult > 1.0) {
+                this.logMessage("      but was: " + dResult);
+                statistics.incorrectResult();
+            }
+            statistics.updateStatistics();
+
+            this.logMessage("  Scenario: resuming");
+            bResult = this.registation.get(AC.NUMSERIE).suspended();
+            if (!bResult) {
+                this.logMessage("      but it was not!");
+                statistics.failedCondition();
+            }
+            this.logMessage("    When I call resume()");
+            bResult = this.registation.get(AC.NUMSERIE).resume();
+            if (!bResult) {
+                this.logMessage("      but was: " + bResult);
+                statistics.incorrectResult();
+            }
+            bResult = this.registation.get(AC.NUMSERIE).suspended();
+            if (bResult) {
+                this.logMessage("      but it was!");
+                statistics.incorrectResult();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        statistics.updateStatistics();
+        statistics.statisticsReport(this);
+        this.logMessage("Air Conditioner tests end.");
+    }
+
 	
 	
 	/**
@@ -1306,5 +1512,72 @@ extends		AbstractComponent
 					}
 				}, delay, TimeUnit.NANOSECONDS);
 	}
+
+	
+	protected void scheduleTestAC() {
+        Instant acTestStart = this.ac.getStartInstant().plusSeconds(5);
+        this.traceMessage("HEM schedules the AC test.\n");
+        long delay = this.ac.nanoDelayUntilInstant(acTestStart);
+
+        this.scheduleTaskOnComponent(
+                new AbstractComponent.AbstractTask() {
+                    @Override
+                    public void run() {
+                        try {
+                            testAC();
+                        } catch (Exception e) {
+                            throw new BCMRuntimeException(e);
+                        }
+                    }
+                }, delay, TimeUnit.NANOSECONDS);
+    }
+	
+	
+	@Override
+    public boolean registered(String uid) throws Exception {
+		
+		AdjustableOutboundPort port = (AdjustableOutboundPort) registation.get(uid);
+        return this.isPortConnected(port.getPortURI());
+    }
+
+    @Override
+    public boolean register(String uid, String controlPortURI, String xmlControlAdapter) throws Exception {
+        try {
+            System.out.println("HEM: ENregistrement de " + uid + " port: " + controlPortURI );
+            File file = new File(xmlControlAdapter);
+
+            ControlAdapterDescriptor desc = AdapterParser.parse(file);
+
+            Class<?> connector = ConnectorGenerator.makeConnectorClassJavassist(desc);
+            registation.putIfAbsent(uid, new AdjustableOutboundPort(this));
+            
+            AdjustableOutboundPort port = registation.get(uid);
+            port.publishPort();
+            
+            this.doPortConnection(port.getPortURI(), controlPortURI, connector.getCanonicalName());
+            
+            System.out.println("HEM: rEnregistrement de " + uid + " port: " + controlPortURI + " using  fini");
+
+
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return false;
+    }
+
+    @Override
+    public void unregister(String uid) throws Exception {
+    	
+    	//détruire le port de connexion dynamique
+    	AdjustableOutboundPort port = (AdjustableOutboundPort) registation.get(uid);
+        this.doPortDisconnection(port.getPortURI());
+        port.unpublishPort();
+        registation.remove(uid);
+        
+        
+
+    }
 }
 // -----------------------------------------------------------------------------

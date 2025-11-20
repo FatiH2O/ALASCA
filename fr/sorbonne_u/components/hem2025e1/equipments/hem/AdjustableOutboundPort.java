@@ -140,6 +140,7 @@ implements	AdjustableCI,RegistrationCI
 	@Override
 	public int			maxMode() throws Exception
 	{
+	
 		int ret = ((AdjustableCI)this.getConnector()).maxMode();
 		assert ret > 0 : new PostconditionException("ret > 0");
 		return ret;
