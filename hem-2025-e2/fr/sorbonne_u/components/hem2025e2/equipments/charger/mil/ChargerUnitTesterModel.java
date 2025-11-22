@@ -1,7 +1,5 @@
 package fr.sorbonne_u.components.hem2025e2.equipments.charger.mil;
 
-// Copyright Jacques Malenfant, Sorbonne Universite.
-// (Licence header omitted for brevity; keep it if you want identical header)
 
 import java.util.concurrent.TimeUnit;
 import java.util.Map;
@@ -34,25 +32,13 @@ extends AbstractTestScenarioBasedAtomicModel
 {
     private static final long serialVersionUID = 1L;
 
-    /** when true, leaves a trace of the execution of the model. */
     public static final boolean VERBOSE = true;
-    /** when true, leaves a debugging trace. */
     public static final boolean DEBUG = false;
 
-    /** single model URI. */
     public static final String URI = "charger-unit-tester-model";
 
-    /** name of the run parameter for the test scenario to be executed. */
     public static final String TEST_SCENARIO_RP_NAME = "TEST_SCENARIO";
 
-    /**
-     * create an atomic model with the given URI to be run by the given
-     * simulator using the given time unit for its clock.
-     *
-     * @param uri                unique identifier of the model.
-     * @param simulatedTimeUnit  time unit used for the simulation clock.
-     * @param simulationEngine   simulation engine enacting the model.
-     */
     public ChargerUnitTesterModel(
         String uri,
         TimeUnit simulatedTimeUnit,

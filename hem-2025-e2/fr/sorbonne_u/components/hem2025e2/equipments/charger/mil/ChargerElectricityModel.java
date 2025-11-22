@@ -1,7 +1,5 @@
 package fr.sorbonne_u.components.hem2025e2.equipments.charger.mil;
 
-// Reference implementation used to derive this model:
-// /mnt/data/ChargerImplementation.java
 
 import java.util.ArrayList;
 import java.util.Map;
@@ -34,20 +32,7 @@ import fr.sorbonne_u.devs_simulation.simulators.interfaces.SimulationReportI;
 import fr.sorbonne_u.devs_simulation.utils.StandardLogger;
 import fr.sorbonne_u.exceptions.AssertionChecking;
 
-/**
- * The class <code>ChargerElectricityModel</code> defines the MIL model
- * of the electricity consumption of the charger.
- *
- * It follows the structure of HairDryerElectricityModel from the course but
- * models the 4 states present in ChargerImplementation:
- *   OFF, IDLE, CHARGING, SUSPENDED
- *
- * Imported events:
- *   PluginCharger, PlugoutCharger, StartCharging, StopCharging, SetTargetPower
- *
- * Exported variable:
- *   currentIntensity (Double) -- power in the power unit used by the meter
- */
+
 @ModelExternalEvents(imported = {
         PluginCharger.class,
         PlugoutCharger.class,
@@ -77,17 +62,12 @@ public class ChargerElectricityModel extends AtomicHIOA {
     @ExportedVariable(type = Double.class)
     protected final Value<Double> currentIntensity = new Value<Double>(this);
 
-    // run parameter names (optional)
     public static final String TARGET_POWER_RPNAME = URI + ":TARGET_POWER_W";
     public static final String TENSION_RPNAME = URI + ":TENSION_V";
 
-    // default values (used if run parameters absent)
     protected double defaultTargetPower = ChargerImplementation.MAX_POWER.getData(); // 65.0
     protected double tension = 230.0; // volts (default)
 
-    // -------------------------------------------------------------------------
-    // Invariants
-    // -------------------------------------------------------------------------
     protected static boolean implementationInvariants(ChargerElectricityModel instance) {
         assert instance != null : new NeoSim4JavaException("Precondition violation: instance != null");
 
@@ -131,9 +111,6 @@ public class ChargerElectricityModel extends AtomicHIOA {
         return ret;
     }
 
-    // -------------------------------------------------------------------------
-    // Constructors
-    // -------------------------------------------------------------------------
     public ChargerElectricityModel(String uri, TimeUnit simulatedTimeUnit, AtomicSimulatorI simulationEngine) throws Exception {
         super(uri, simulatedTimeUnit, simulationEngine);
         // default target power comes from ChargerImplementation.MAX_POWER
@@ -144,11 +121,7 @@ public class ChargerElectricityModel extends AtomicHIOA {
         assert implementationInvariants(this) : new NeoSim4JavaException("ChargerElectricityModel.implementationInvariants(this)");
         assert invariants(this) : new NeoSim4JavaException("ChargerElectricityModel.invariants(this)");
     }
-
-    // -------------------------------------------------------------------------
-    // Accessors
-    // -------------------------------------------------------------------------
-    public ChargerState getState() {
+public ChargerState getState() {
         return this.currentState;
     }
 
@@ -162,10 +135,7 @@ public class ChargerElectricityModel extends AtomicHIOA {
         this.consumptionHasChanged = !this.consumptionHasChanged;
     }
 
-    // -------------------------------------------------------------------------
-    // DEVS simulation protocol
-    // -------------------------------------------------------------------------
-    @Override
+     @Override
     public void initialiseState(Time startTime) {
         super.initialiseState(startTime);
         this.currentState = ChargerState.OFF;
@@ -198,7 +168,6 @@ public class ChargerElectricityModel extends AtomicHIOA {
     public Duration timeAdvance() {
         Duration ret;
         if (this.consumptionHasChanged) {
-            // trigger immediate internal transition to update exported variable
             this.toggleConsumptionHasChanged();
             ret = new Duration(0.0, this.getSimulatedTimeUnit());
         } else {
@@ -215,16 +184,12 @@ public class ChargerElectricityModel extends AtomicHIOA {
         super.userDefinedInternalTransition(elapsedTime);
 
         Time t = this.getCurrentStateTime();
-        // update currentIntensity based on currentState
         switch (this.currentState) {
             case CHARGING:
-                // currentIntensity expressed in power unit (watts) divided by tension => current (A)
-                // but we export the power unit as in HairDryer (the meter expects values in its POWER_UNIT)
-                // Here we export the power in watts (compatible with Electricity.computeConsumption usage).
-                this.currentIntensity.setNewValue(this.targetPower, t);
+                  this.currentIntensity.setNewValue(this.targetPower, t);
                 break;
             case IDLE:
-                // not charging, power = 0.0 (no idle consumption in ChargerImplementation)
+                
                 this.currentIntensity.setNewValue(0.0, t);
                 break;
             case SUSPENDED:
@@ -257,12 +222,9 @@ public class ChargerElectricityModel extends AtomicHIOA {
             return;
         }
 
-        // by construction we expect one event at a time for this simple model
         Event ce = (Event) currentEvents.get(0);
 
-        // update total consumption for the elapsed time before handling the event
-        // currentIntensity value is in watts, Electricity.computeConsumption expects (duration, powerInWatts)
-        this.totalConsumption += Electricity.computeConsumption(elapsedTime, this.currentIntensity.getValue());
+         this.totalConsumption += Electricity.computeConsumption(elapsedTime, this.currentIntensity.getValue());
 
         if (VERBOSE) {
             StringBuffer message = new StringBuffer("external transition: ");
@@ -270,25 +232,20 @@ public class ChargerElectricityModel extends AtomicHIOA {
             this.logMessage(message.toString());
         }
 
-        // handle events by type
         if (ce instanceof PluginCharger) {
-            // plugin: OFF -> IDLE
             if (this.currentState == ChargerState.OFF) {
                 this.currentState = ChargerState.IDLE;
                 this.toggleConsumptionHasChanged();
             }
         } else if (ce instanceof PlugoutCharger) {
-            // plugout: any -> OFF
             if (this.currentState != ChargerState.OFF) {
                 this.currentState = ChargerState.OFF;
                 this.targetPower = this.defaultTargetPower;
                 this.toggleConsumptionHasChanged();
             }
         } else if (ce instanceof StartCharging) {
-            // start charging: only if plugged (IDLE or SUSPENDED)
             if (this.currentState == ChargerState.IDLE || this.currentState == ChargerState.SUSPENDED) {
                 this.currentState = ChargerState.CHARGING;
-                // on start, use current targetPower (clamped if necessary)
                 if (this.targetPower > ChargerImplementation.MAX_POWER.getData()) {
                     this.targetPower = ChargerImplementation.MAX_POWER.getData();
                 }
@@ -301,17 +258,14 @@ public class ChargerElectricityModel extends AtomicHIOA {
                 this.toggleConsumptionHasChanged();
             }
         } else if (ce instanceof SetTargetPower) {
-            // set target power event should carry a field 'watts'
             SetTargetPower st = (SetTargetPower) ce;
             double newTarget = st.watts;
-            // clamp to max allowed
             if (newTarget > ChargerImplementation.MAX_POWER.getData()) {
                 newTarget = ChargerImplementation.MAX_POWER.getData();
             } else if (newTarget < 0.0) {
                 newTarget = 0.0;
             }
             this.targetPower = newTarget;
-            // if currently charging, update consumption immediately
             if (this.currentState == ChargerState.CHARGING) {
                 this.toggleConsumptionHasChanged();
             }
@@ -328,7 +282,6 @@ public class ChargerElectricityModel extends AtomicHIOA {
 
     @Override
     public void endSimulation(Time endTime) {
-        // account for consumption since last event
         Duration d = endTime.subtract(this.getCurrentStateTime());
         this.totalConsumption += Electricity.computeConsumption(d, this.currentIntensity.getValue());
 
@@ -338,9 +291,6 @@ public class ChargerElectricityModel extends AtomicHIOA {
         super.endSimulation(endTime);
     }
 
-    // -------------------------------------------------------------------------
-    // Optional DEVS simulation protocol: run parameters
-    // -------------------------------------------------------------------------
     @Override
     public void setSimulationRunParameters(Map<String, Object> simParams) throws MissingRunParameterException {
         super.setSimulationRunParameters(simParams);
@@ -360,10 +310,7 @@ public class ChargerElectricityModel extends AtomicHIOA {
         assert invariants(this) : new NeoSim4JavaException("ChargerElectricityModel.invariants(this)");
     }
 
-    // -------------------------------------------------------------------------
-    // Optional DEVS simulation protocol: simulation report
-    // -------------------------------------------------------------------------
-    public static class ChargerElectricityReport implements SimulationReportI, GlobalReportI {
+     public static class ChargerElectricityReport implements SimulationReportI, GlobalReportI {
         private static final long serialVersionUID = 1L;
         protected String modelURI;
         protected double totalConsumption;

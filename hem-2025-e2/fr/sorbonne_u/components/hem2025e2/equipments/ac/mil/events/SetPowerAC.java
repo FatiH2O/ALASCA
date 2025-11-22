@@ -9,7 +9,7 @@ import fr.sorbonne_u.devs_simulation.exceptions.NeoSim4JavaException;
 
 import fr.sorbonne_u.components.hem2025e2.equipments.ac.mil.ACElectricityModel;
 import fr.sorbonne_u.components.hem2025e2.equipments.ac.mil.ACEventI;
-import fr.sorbonne_u.components.hem2025e1.equipments.heater.HeaterExternalControlI;
+import fr.sorbonne_u.components.hem2025e1.equipments.ac.ACExternalControlI;
 
 public class SetPowerAC extends ES_Event implements ACEventI {
 
@@ -20,7 +20,7 @@ public class SetPowerAC extends ES_Event implements ACEventI {
         protected final double power;
 
         public PowerValue(double p) {
-            assert p >= 0.0 && p <= HeaterExternalControlI.MAX_POWER_LEVEL.getData();
+            assert p >= 0.0 && p <= ACExternalControlI.MAX_POWER_LEVEL.getData();
             this.power = p;
         }
 

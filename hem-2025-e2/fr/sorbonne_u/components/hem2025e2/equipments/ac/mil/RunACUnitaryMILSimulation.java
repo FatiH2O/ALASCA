@@ -7,10 +7,10 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import fr.sorbonne_u.components.hem2025.tests_utils.SimulationTestStep;
+import fr.sorbonne_u.components.hem2025.tests_utils.TestScenario;
 import fr.sorbonne_u.components.hem2025e2.equipments.ac.mil.events.SetPowerAC;
 import fr.sorbonne_u.components.hem2025e2.equipments.ac.mil.events.SwitchOffAC;
 import fr.sorbonne_u.components.hem2025e2.equipments.ac.mil.events.SwitchOnAC;
-import fr.sorbonne_u.components.hem2025e2.equipments.batteries.mil.BatteriesSimulationConfiguration.TestScenario;
 import fr.sorbonne_u.devs_simulation.architectures.Architecture;
 import fr.sorbonne_u.devs_simulation.architectures.ArchitectureI;
 import fr.sorbonne_u.devs_simulation.hioa.architectures.AtomicHIOA_Descriptor;
@@ -26,6 +26,7 @@ import fr.sorbonne_u.devs_simulation.models.time.Time;
 import fr.sorbonne_u.devs_simulation.simulators.SimulationEngine;
 import fr.sorbonne_u.devs_simulation.simulators.interfaces.SimulatorI;
 import fr.sorbonne_u.devs_simulation.simulators.interfaces.SimulationReportI;
+import fr.sorbonne_u.components.hem2025e1.equipments.ac.ACExternalControlI;
 import java.time.Instant;
 import java.util.ArrayList;
 
@@ -170,7 +171,7 @@ public class RunACUnitaryMILSimulation
                     Instant.parse("2025-10-20T14:00:00.00Z"),
                     (m, t) -> {
                         ArrayList<EventI> ret = new ArrayList<>();
-                        double p = 0.5 * fr.sorbonne_u.components.hem2025e1.equipments.heater.HeaterExternalControlI.MAX_POWER_LEVEL.getData();
+                        double p = 0.5 * ACExternalControlI.MAX_POWER_LEVEL.getData();
                         ret.add(new SetPowerAC(t, new SetPowerAC.PowerValue(p)));
                         return ret;
                     },

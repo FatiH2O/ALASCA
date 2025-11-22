@@ -33,16 +33,10 @@ import fr.sorbonne_u.devs_simulation.simulators.SimulationEngine;
 import fr.sorbonne_u.devs_simulation.simulators.interfaces.SimulationReportI;
 import fr.sorbonne_u.devs_simulation.simulators.interfaces.SimulatorI;
 
-/**
- * The class <code>RunChargerUnitaryMILSimulation</code> is the main class used
- * to run unit simulations on the charger models in isolation based on test scenarios.
- */
+
 public class RunChargerUnitaryMILSimulation
 {
-	// -------------------------------------------------------------------------
-	// Invariants
-	// -------------------------------------------------------------------------
-
+	
 	public static boolean staticInvariants()
 	{
 		boolean ret = true;
