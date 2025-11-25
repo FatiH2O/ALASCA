@@ -19,13 +19,13 @@ Requis pour le projet :
 
 ## Points clés
 
-Architecture par composants avec connecteurs, ports entrants et sortants
+-Architecture par composants avec connecteurs, ports entrants et sortants
 
-Génération dynamique de classes de connecteurs avec Javassist
+-Génération dynamique de classes de connecteurs avec Javassist
 
-Tests unitaires, d’intégration et temporisés
+-Tests unitaires, d’intégration et temporisés
 
-À suivre…
+-À suivre…
 
 ## Démarrage
 
