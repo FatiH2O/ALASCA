@@ -1,4 +1,4 @@
-### Gestion autonome de l’énergie dans les logements intelligents
+# Gestion autonome de l’énergie dans les logements intelligents
 
 Projet en cours de développement.
 
