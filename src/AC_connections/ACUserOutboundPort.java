@@ -1,0 +1,71 @@
+package AC_connections;
+
+import AC.ACUserCI;
+import fr.sorbonne_u.alasca.physical_data.Measure;
+import fr.sorbonne_u.alasca.physical_data.SignalData;
+import fr.sorbonne_u.components.ComponentI;
+import fr.sorbonne_u.components.ports.AbstractOutboundPort;
+
+public class ACUserOutboundPort extends AbstractOutboundPort implements ACUserCI {
+    private static final long serialVersionUID = 1L;
+
+    public ACUserOutboundPort(ComponentI owner) throws Exception {
+        super(ACUserCI.class, owner);
+    }
+    
+    public ACUserOutboundPort(String uri, ComponentI owner) throws Exception {
+        super(uri, ACUserCI.class, owner);
+    }
+
+    @Override
+    public boolean isOn() throws Exception {
+        return ((ACUserCI)this.getConnector()).isOn();
+    }
+
+    @Override
+    public void switchOn() throws Exception {
+        ((ACUserCI)this.getConnector()).switchOn();
+    }
+
+    @Override
+    public void switchOff() throws Exception {
+        ((ACUserCI)this.getConnector()).switchOff();
+    }
+
+    @Override
+    public void setTargetTemperature(Measure<Double> target) throws Exception {
+        ((ACUserCI)this.getConnector()).setTargetTemperature(target);
+    }
+
+    @Override
+    public Measure<Double> getTargetTemperature() throws Exception {
+        return ((ACUserCI)this.getConnector()).getTargetTemperature();
+    }
+
+    @Override
+    public SignalData<Double> getCurrentTemperature() throws Exception {
+        return ((ACUserCI)this.getConnector()).getCurrentTemperature();
+    }
+   
+
+	
+	@Override
+	public Measure<Double>	getMaxPowerLevel() throws Exception
+	{
+		return ((ACUserCI)this.getConnector()).getMaxPowerLevel();
+	}
+
+	
+	@Override
+	public void			setCurrentPowerLevel(Measure<Double> powerLevel)
+	throws Exception
+	{
+		((ACUserCI)this.getConnector()).setCurrentPowerLevel(powerLevel);
+	}
+	@Override
+	public SignalData<Double>	getCurrentPowerLevel() throws Exception
+	{
+		return ((ACUserCI)this.getConnector()).getCurrentPowerLevel();
+	}
+
+}

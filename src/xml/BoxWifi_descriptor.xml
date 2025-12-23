@@ -1,0 +1,137 @@
+<control-adapter
+    xmlns="http://www.sorbonne-universite.fr/alasca/control-adapter"
+    uid="WIFI-CN-001"
+    offered="Wifi.BoxWifiImplementationI">
+
+  <consumption nominal="12" min="0" max="12"/>
+
+  <instance-var modifiers="protected" type="int" name="currentMode" static-init="0"/>
+  <instance-var modifiers="protected" type="boolean" name="isSuspended" static-init="false"/>
+  
+  
+  <method name="applyMode">
+    <parameter name="modeIndex"/>
+    <body equipmentRef="BoxWifi">
+      switch(modeIndex) {
+        case 0:
+          BoxWifi.turnOff();
+          break;
+
+        case 1:
+          BoxWifi.turnOn();
+          BoxWifi.deactivateWifi();
+          break;
+
+        case 2:
+          BoxWifi.turnOn();
+          BoxWifi.activateWifi();
+          break;
+      }
+      currentMode = modeIndex;
+    </body>
+  </method>
+
+  <suspended>
+    <body>
+      return isSuspended;
+    </body>
+  </suspended>
+
+  <suspend>
+    <body equipmentRef="BoxWifi">
+      try {
+        BoxWifi.turnOff();
+        isSuspended = true;
+      } catch(Exception e) {
+        return false;
+      }
+      return true;
+    </body>
+  </suspend>
+
+  <resume>
+    <body>
+      try {
+        applyMode(currentMode);
+        isSuspended = false;
+      } catch(Exception e) {
+        return false;
+      }
+      return true;
+    </body>
+  </resume>
+
+  <emergency>
+    <body>
+      switch(currentMode) {
+        case 0: return 0.0;
+        case 1: return 0.3;
+        case 2: return 0.8;
+        default: return 0.0;
+      }
+    </body>
+  </emergency>
+
+  <maxMode>
+    <body>
+    return 2;</body>
+  </maxMode>
+
+  <upMode>
+    <body>
+      if (isSuspended) return false;
+      if (currentMode &lt; 2) {
+        currentMode++;
+        applyMode(currentMode);
+        return true;
+      }
+      return false;
+    </body>
+  </upMode>
+
+  <downMode>
+    <body>
+      if (isSuspended) return false;
+      if (currentMode &gt; 0) {
+        currentMode--;
+        applyMode(currentMode);
+        return true;
+      }
+      return false;
+    </body>
+  </downMode>
+
+  <setMode>
+    <parameter name="modeIndex"/>
+    <body>
+
+      if (isSuspended) return false;
+      if (modeIndex &gt;= 0 &amp;&amp; modeIndex &lt;= 2) {
+        currentMode = modeIndex;
+        applyMode(currentMode);
+        return true;
+      }
+      return false;
+    </body>
+  </setMode>
+
+  <currentMode>
+    <body>
+
+      return currentMode;
+    </body>
+  </currentMode>
+
+  <getModeConsumption>
+    <parameter name="modeIndex"/>
+    <body>
+      if (modeIndex == 0) return 0.0;
+      if (modeIndex == 1) return 8.0;
+      if (modeIndex == 2) return 12.0;
+      return 0.0;
+    </body>
+  </getModeConsumption>
+
+  
+
+</control-adapter>

@@ -1,0 +1,106 @@
+<control-adapter
+    xmlns="http://www.sorbonne-universite.fr/alasca/control-adapter"
+    uid="1A10001"
+    offered="Tumbledryer.TumbleDryerEnergyManagerCI">
+
+  <!-- Consommation estimée du sèche-linge -->
+  <consumption nominal="2000" min="0" max="2000"/>
+
+  <!-- Dépendances nécessaires -->
+  <required>fr.sorbonne_u.exceptions.PreconditionException</required>
+
+  <!-- Variables d'instance -->
+  <instance-var modifiers="public static final" type="int" name="MAX_MODE"
+                static-init="4"/>
+  <instance-var modifiers="protected" type="int" name="currentMode"
+                static-init="MAX_MODE"/>
+  <instance-var modifiers="protected" type="boolean" name="isSuspended"
+                static-init="false"/>
+
+  <!-- Méthodes -->
+  <maxMode>
+    <body>
+      return MAX_MODE;
+    </body>
+  </maxMode>
+  <upMode>
+    <body equipmentRef="tumbleDryer">
+      try {
+        tumbleDryer.upperLevel();
+        currentMode++;
+      } catch(Exception e) {
+        return false;
+      }
+      return true; 
+    </body>
+  </upMode>
+  <downMode>
+    <body equipmentRef="tumbleDryer">
+      try {
+        tumbleDryer.lowerLevel();
+        currentMode--;
+      } catch(Exception e) {
+        return false;
+      }
+      return true;
+    </body>
+  </downMode>
+  <setMode>
+    <parameter name="modeIndex"/>
+    <body equipmentRef="tumbleDryer">
+      try {
+        tumbleDryer.setPowerLevel(modeIndex);
+        currentMode = modeIndex;
+      } catch(Exception e) {
+        return false;
+      }
+      return true;
+    </body>
+  </setMode>
+  <currentMode>
+    <body>
+      return currentMode;
+    </body>
+  </currentMode>
+  <getModeConsumption>
+    <parameter name="modeIndex"/>
+    <body equipmentRef="tumbleDryer">
+      return tumbleDryer.getNeededPowerLevel(modeIndex);
+    </body>
+  </getModeConsumption>
+  <suspended>
+    <body>
+      return isSuspended;
+    </body>
+  </suspended>
+  <suspend>
+    <body equipmentRef="tumbleDryer">
+      try {
+        currentMode = 1;
+        isSuspended = true;
+        return tumbleDryer.timedShutdown();
+      } catch(Exception e) {
+        return false;
+      }
+    </body>
+  </suspend>
+  <resume>
+    <body equipmentRef="tumbleDryer">
+      try {
+        currentMode = 1;
+        isSuspended = true;
+        return tumbleDryer.shutDown();
+      } catch(Exception e) {
+        return false;
+      }
+    </body>
+  </resume>
+  <emergency>
+    <body equipmentRef="tumbleDryer">
+      int emergencyCatchedMode = currentMode;
+      tumbleDryer.shutDown();
+      return (double) emergencyCatchedMode;
+    </body>
+  </emergency>
+
+</control-adapter>
